@@ -5,6 +5,7 @@ import com.smartagri.security.jwt.JwtAccessDeniedHandler;
 import com.smartagri.security.jwt.JwtAuthEntryPoint;
 import com.smartagri.security.jwt.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -25,6 +26,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
@@ -38,8 +40,12 @@ public class SecurityConfig {
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
+
     private static final String[] PUBLIC_URLS = {
             "/auth/**",
+            "/health",
             "/products/**",
             "/categories/**",
             "/farmers/public/**",
@@ -64,6 +70,7 @@ public class SecurityConfig {
                 .requestMatchers(PUBLIC_URLS).permitAll()
                 .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/categories/**").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/farmer/**").hasAnyRole("FARMER", "ADMIN")
                 .requestMatchers("/buyer/**").hasAnyRole("BUYER", "ADMIN")
@@ -79,9 +86,20 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:*", "https://*.smartagri.in"));
+
+        // Build allowed origin patterns dynamically
+        List<String> patterns = new ArrayList<>();
+        patterns.add("http://localhost:*");
+
+        if (frontendUrl != null && !frontendUrl.isBlank()) {
+            patterns.add(frontendUrl);
+        }
+        // Allow any Vercel preview deployments
+        patterns.add("https://*.vercel.app");
+
+        config.setAllowedOriginPatterns(patterns);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

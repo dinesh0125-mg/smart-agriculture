@@ -13,6 +13,7 @@ backend/*.war
 backend/.mvn/
 backend/mvnw
 backend/mvnw.cmd
+backend/logs/
 
 # ============================================
 # Frontend
@@ -35,3 +36,8 @@ frontend/dist/
 # ============================================
 .DS_Store
 Thumbs.db
+
+# ============================================
+# Agents / Gemini
+# ============================================
+.agents/

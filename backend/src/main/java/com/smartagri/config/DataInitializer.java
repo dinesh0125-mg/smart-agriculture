@@ -7,6 +7,7 @@ import com.smartagri.enums.UserStatus;
 import com.smartagri.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -28,9 +29,20 @@ public class DataInitializer implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${app.seed.enabled:false}")
+    private boolean seedEnabled;
+
     @Override
     public void run(String... args) {
+        // Admin account is always created (idempotent check inside)
         seedAdmin();
+
+        if (!seedEnabled) {
+            log.info("Seed data is disabled (ENABLE_SEED_DATA=false). Skipping demo data.");
+            return;
+        }
+
+        log.info("Seed data is enabled. Inserting demo data if missing...");
         seedCategories();
         seedMarketPrices();
         seedFarmersAndProducts();
