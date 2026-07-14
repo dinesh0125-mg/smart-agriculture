@@ -32,7 +32,7 @@ public class EmailService {
     @Value("${app.name:Smart Agriculture Marketplace}")
     private String applicationName;
 
-    @Value("${app.frontend-url:${FRONTEND_URL:http://localhost:5173}}")
+    @Value("${app.frontend-url:${FRONTEND_URL:https://smart-agri-lime.vercel.app}}")
     private String frontendUrl;
 
     /**
@@ -968,6 +968,209 @@ public class EmailService {
                 + email.substring(atIndex);
     }
 
+    @Async
+public void sendFarmerApprovalEmail(
+        String recipientEmail,
+        String farmerName
+) {
+    validateEmail(recipientEmail);
+
+    String safeName = defaultName(farmerName);
+    String subject = applicationName + " - Farmer Account Approved";
+
+    String dashboardUrl =
+            normalizeFrontendUrl(frontendUrl)
+                    + "/farmer/dashboard";
+
+    String body = """
+            <h2>Farmer Account Approved</h2>
+
+            <p>Hello %s,</p>
+
+            <p>
+                Your farmer account has been approved successfully.
+            </p>
+
+            <p>
+                You can now add products, manage inventory,
+                receive orders and use all farmer features.
+            </p>
+
+            <div style="margin-top:24px;">
+                <a href="%s"
+                   style="
+                       display:inline-block;
+                       padding:12px 22px;
+                       background:#1f7a3f;
+                       color:#ffffff;
+                       text-decoration:none;
+                       border-radius:7px;
+                   ">
+                    Open Farmer Dashboard
+                </a>
+            </div>
+            """.formatted(
+            escapeHtml(safeName),
+            escapeHtml(dashboardUrl)
+    );
+
+    sendHtmlEmail(recipientEmail, subject, body);
+}
+    @Async
+public void sendFarmerRejectionEmail(
+        String recipientEmail,
+        String farmerName
+) {
+    validateEmail(recipientEmail);
+
+    String safeName = defaultName(farmerName);
+    String subject = applicationName + " - Farmer Application Update";
+
+    String contactUrl =
+            normalizeFrontendUrl(frontendUrl)
+                    + "/contact";
+
+    String body = """
+            <h2>Farmer Application Update</h2>
+
+            <p>Hello %s,</p>
+
+            <p>
+                We are unable to approve your farmer application
+                at this time.
+            </p>
+
+            <p>
+                Please review your profile information and contact
+                support if you need clarification or want to submit
+                updated details.
+            </p>
+
+            <div style="margin-top:24px;">
+                <a href="%s"
+                   style="
+                       display:inline-block;
+                       padding:12px 22px;
+                       background:#1f7a3f;
+                       color:#ffffff;
+                       text-decoration:none;
+                       border-radius:7px;
+                   ">
+                    Contact Support
+                </a>
+            </div>
+            """.formatted(
+            escapeHtml(safeName),
+            escapeHtml(contactUrl)
+    );
+
+    sendHtmlEmail(recipientEmail, subject, body);
+}
+    @Async
+public void sendOrderConfirmationEmail(
+        String recipientEmail,
+        String customerName,
+        Long orderId,
+        BigDecimal totalAmount
+) {
+    validateEmail(recipientEmail);
+
+    String safeName = defaultName(customerName);
+    String formattedAmount = formatCurrency(totalAmount);
+
+    String orderUrl =
+            normalizeFrontendUrl(frontendUrl)
+                    + "/orders/"
+                    + orderId;
+
+    String subject =
+            "Order Confirmed - #" + orderId;
+
+    String body = """
+            <h2>Order Confirmed</h2>
+
+            <p>Hello %s,</p>
+
+            <p>
+                Your order has been placed successfully.
+            </p>
+
+            <table style="
+                width:100%%;
+                border-collapse:collapse;
+                margin:20px 0;
+            ">
+                <tr>
+                    <td style="
+                        padding:10px;
+                        border:1px solid #dddddd;
+                    ">
+                        <strong>Order ID</strong>
+                    </td>
+
+                    <td style="
+                        padding:10px;
+                        border:1px solid #dddddd;
+                    ">
+                        #%s
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="
+                        padding:10px;
+                        border:1px solid #dddddd;
+                    ">
+                        <strong>Total Amount</strong>
+                    </td>
+
+                    <td style="
+                        padding:10px;
+                        border:1px solid #dddddd;
+                    ">
+                        %s
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="
+                        padding:10px;
+                        border:1px solid #dddddd;
+                    ">
+                        <strong>Status</strong>
+                    </td>
+
+                    <td style="
+                        padding:10px;
+                        border:1px solid #dddddd;
+                    ">
+                        Confirmed
+                    </td>
+                </tr>
+            </table>
+
+            <div style="margin-top:24px;">
+                <a href="%s"
+                   style="
+                       display:inline-block;
+                       padding:12px 22px;
+                       background:#1f7a3f;
+                       color:#ffffff;
+                       text-decoration:none;
+                       border-radius:7px;
+                   ">
+                    View Order
+                </a>
+            </div>
+            """.formatted(
+            escapeHtml(safeName),
+            orderId,
+            escapeHtml(formattedAmount),
+            escapeHtml(orderUrl)
+    );
+
+    sendHtmlEmail(recipientEmail, subject, body);
+}
     private String escapeHtml(String value) {
         if (value == null) {
             return "";
