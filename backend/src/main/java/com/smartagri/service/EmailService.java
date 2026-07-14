@@ -1,16 +1,18 @@
 package com.smartagri.service;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailAuthenticationException;
+import org.springframework.mail.MailException;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 
 @Service
 @RequiredArgsConstructor
@@ -19,170 +21,268 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${app.mail.from}") private String fromEmail;
-    @Value("${app.mail.from-name}") private String fromName;
-    @Value("${app.frontend-url}") private String frontendUrl;
-    @Value("${app.name}") private String appName;
+    @Value("${app.mail.from}")
+    private String mailFrom;
 
-    @Async
-    public void sendVerificationEmail(String toEmail, String userName, String token) {
-        String link = frontendUrl + "/verify-email?token=" + token;
-        String html = buildEmailTemplate("Verify Your Email", userName,
-            "<p>Thank you for registering with <strong>" + appName + "</strong>. " +
-            "Please click the button below to verify your email address:</p>",
-            link, "Verify Email");
-        sendEmail(toEmail, "Verify your " + appName + " account", html);
-    }
+    @Value("${app.name:Smart Agriculture Marketplace}")
+    private String applicationName;
 
-    @Async
-    public void sendPasswordResetEmail(String toEmail, String userName, String token) {
-        String link = frontendUrl + "/reset-password?token=" + token;
-        String html = buildEmailTemplate("Reset Your Password", userName,
-            "<p>We received a request to reset the password for your account. " +
-            "Click the button below to set a new password. This link expires in 30 minutes.</p>",
-            link, "Reset Password");
-        sendEmail(toEmail, "Reset your " + appName + " password", html);
-    }
+    public void sendVerificationCode(
+            String recipientEmail,
+            String otp
+    ) {
 
-    @Async
-    public void sendWelcomeEmail(String toEmail, String userName, String role) {
-        String html = buildEmailTemplate("Welcome to " + appName + "!", userName,
-            "<p>Your account has been successfully created as a <strong>" + role + "</strong>. " +
-            "We're excited to have you on board!</p>" +
-            "<p>Start exploring fresh farm produce from across India.</p>",
-            frontendUrl, "Go to Marketplace");
-        sendEmail(toEmail, "Welcome to " + appName, html);
-    }
-
-    @Async
-    public void sendOtpEmail(String toEmail, String userName, String otp) {
-        String html = buildEmailTemplate("Your Verification Code", userName,
-            "<p>Your verification code for <strong>" + appName + "</strong> is:</p>" +
-            "<div style=\"text-align:center;margin:24px 0;\">" +
-            "<span style=\"font-size:32px;font-weight:800;letter-spacing:8px;color:#1B5E20;background:#E8F5E9;padding:16px 32px;border-radius:12px;display:inline-block;\">" + otp + "</span>" +
-            "</div>" +
-            "<p>This code is valid for 10 minutes. Do not share it with anyone.</p>",
-            frontendUrl, "Go to Marketplace");
-        sendEmail(toEmail, "Your verification code - " + appName, html);
-    }
-
-    @Async
-    public void sendOrderConfirmationEmail(String toEmail, String userName, Long orderId, BigDecimal amount) {
-        String html = buildEmailTemplate("Order Confirmed!", userName,
-            "<p>Your order <strong>#ORD-" + orderId + "</strong> has been placed successfully.</p>" +
-            "<p>Order Amount: <strong>₹" + amount + "</strong></p>" +
-            "<p>We'll notify you once your order is shipped.</p>",
-            frontendUrl + "/orders", "View Order");
-        sendEmail(toEmail, "Order #ORD-" + orderId + " Confirmed", html);
-    }
-
-    @Async
-    public void sendPaymentSuccessEmail(String toEmail, String userName, Long orderId, BigDecimal amount) {
-        String html = buildEmailTemplate("Payment Successful!", userName,
-            "<p>We've received your payment of <strong>₹" + amount + "</strong> for order <strong>#ORD-" + orderId + "</strong>.</p>" +
-            "<p>Your order is now being processed and will be delivered soon.</p>",
-            frontendUrl + "/orders", "Track Order");
-        sendEmail(toEmail, "Payment received for Order #ORD-" + orderId, html);
-    }
-
-    @Async
-    public void sendOrderStatusUpdateEmail(String toEmail, String userName, Long orderId, String status) {
-        String html = buildEmailTemplate("Order Status Update", userName,
-            "<p>Your order <strong>#ORD-" + orderId + "</strong> status has been updated to: <strong>" + status + "</strong>.</p>",
-            frontendUrl + "/orders", "View Order");
-        sendEmail(toEmail, "Order #ORD-" + orderId + " is now " + status, html);
-    }
-
-    @Async
-    public void sendFarmerApprovalEmail(String toEmail, String farmerName) {
-        String html = buildEmailTemplate("Farmer Account Approved!", farmerName,
-            "<p>Congratulations! Your farmer account on <strong>" + appName + "</strong> has been approved.</p>" +
-            "<p>You can now start listing your products and selling directly to buyers across India.</p>",
-            frontendUrl + "/my-products", "Start Selling");
-        sendEmail(toEmail, "Your farmer account is approved!", html);
-    }
-
-    @Async
-    public void sendFarmerRejectionEmail(String toEmail, String farmerName) {
-        String html = buildEmailTemplate("Account Review Update", farmerName,
-            "<p>We've reviewed your farmer account application and unfortunately it did not meet our requirements at this time.</p>" +
-            "<p>Please contact our support team for more information.</p>",
-            frontendUrl + "/contact", "Contact Support");
-        sendEmail(toEmail, "Account Review Update - " + appName, html);
-    }
-
-    @Async
-    public void sendContactNotification(String adminEmail, com.smartagri.dto.request.ContactMessageRequest request) {
-        String body = "<p>You have received a new contact form message on <strong>" + appName + "</strong>.</p>" +
-            "<table style=\"width:100%;border-collapse:collapse;margin-top:16px;\">" +
-            "<tr><td style=\"padding:8px;background:#f5f5f5;font-weight:bold;width:120px;\">From</td>" +
-            "<td style=\"padding:8px;border-bottom:1px solid #eee;\">" + request.getName() + "</td></tr>" +
-            "<tr><td style=\"padding:8px;background:#f5f5f5;font-weight:bold;\">Email</td>" +
-            "<td style=\"padding:8px;border-bottom:1px solid #eee;\"><a href=\"mailto:" + request.getEmail() + "\">" + request.getEmail() + "</a></td></tr>" +
-            "<tr><td style=\"padding:8px;background:#f5f5f5;font-weight:bold;\">Subject</td>" +
-            "<td style=\"padding:8px;border-bottom:1px solid #eee;\">" + request.getSubject() + "</td></tr>" +
-            "<tr><td style=\"padding:8px;background:#f5f5f5;font-weight:bold;vertical-align:top;\">Message</td>" +
-            "<td style=\"padding:8px;white-space:pre-wrap;\">" + request.getMessage() + "</td></tr>" +
-            "</table>";
-        String html = buildEmailTemplate("New Contact Form Message", "Admin", body,
-            "mailto:" + request.getEmail(), "Reply to " + request.getName());
-        sendEmail(adminEmail, "New Message: " + request.getSubject() + " - " + request.getName(), html);
-    }
-
-    private void sendEmail(String to, String subject, String htmlBody) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(htmlBody, true);
-            mailSender.send(message);
-            log.info("Email sent to: {}", to);
-        } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
+            MimeMessage mimeMessage =
+                    mailSender.createMimeMessage();
+
+            MimeMessageHelper helper =
+                    new MimeMessageHelper(
+                            mimeMessage,
+                            false,
+                            StandardCharsets.UTF_8.name()
+                    );
+
+            helper.setFrom(
+                    mailFrom,
+                    applicationName
+            );
+
+            helper.setTo(recipientEmail);
+
+            helper.setSubject(
+                    applicationName + " - Email Verification Code"
+            );
+
+            helper.setText(
+                    buildVerificationEmailBody(otp),
+                    true
+            );
+
+            mailSender.send(mimeMessage);
+
+            log.info(
+                    "Verification email sent successfully to {}",
+                    maskEmail(recipientEmail)
+            );
+
+        } catch (MailAuthenticationException exception) {
+
+            log.error(
+                    "Gmail SMTP authentication failed. " +
+                    "Check MAIL_USERNAME and MAIL_PASSWORD.",
+                    exception
+            );
+
+            throw new IllegalStateException(
+                    "Email service authentication failed. " +
+                    "Please contact the administrator."
+            );
+
+        } catch (MailSendException exception) {
+
+            log.error(
+                    "SMTP server failed to send verification email to {}",
+                    maskEmail(recipientEmail),
+                    exception
+            );
+
+            throw new IllegalStateException(
+                    "Unable to send verification email. " +
+                    "Please try again later."
+            );
+
+        } catch (MessagingException | MailException exception) {
+
+            log.error(
+                    "Failed to send verification email to {}. Reason: {}",
+                    maskEmail(recipientEmail),
+                    exception.getMessage(),
+                    exception
+            );
+
+            throw new IllegalStateException(
+                    "Failed to send verification code. " +
+                    "Please try again."
+            );
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Unexpected error while sending verification email to {}",
+                    maskEmail(recipientEmail),
+                    exception
+            );
+
+            throw new IllegalStateException(
+                    "Unexpected email service error."
+            );
         }
     }
 
-    private String buildEmailTemplate(String title, String userName, String body, String ctaLink, String ctaText) {
+    private String buildVerificationEmailBody(String otp) {
+
         return """
-            <!DOCTYPE html>
-            <html><head><meta charset="UTF-8"></head>
-            <body style="font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:0;">
-            <table width="100%%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:20px 0;">
-              <tr><td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
-                  <tr>
-                    <td style="background:linear-gradient(135deg,#1B5E20,#4CAF50);padding:30px;text-align:center;">
-                      <h1 style="color:#fff;margin:0;font-size:28px;">Smart Agriculture</h1>
-                      <p style="color:#C8E6C9;margin:5px 0 0;">Marketplace</p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:40px 30px;">
-                      <h2 style="color:#1B5E20;margin-top:0;">""" + title + """
-                      </h2>
-                      <p style="color:#555;font-size:16px;">Hello, <strong>""" + userName + """
-                      </strong>!</p>
-                      <div style="color:#555;font-size:15px;line-height:1.6;">""" + body + """
-                      </div>
-                      <div style="text-align:center;margin:30px 0;">
-                        <a href=\"""" + ctaLink + """
-                          " style="background:linear-gradient(135deg,#2E7D32,#66BB6A);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:bold;display:inline-block;">""" + ctaText + """
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="background:#f9f9f9;padding:20px 30px;text-align:center;border-top:1px solid #eee;">
-                      <p style="color:#999;font-size:13px;margin:0;">© 2025 Smart Agriculture Marketplace. All rights reserved.</p>
-                      <p style="color:#999;font-size:12px;">If you didn't create an account, you can safely ignore this email.</p>
-                    </td>
-                  </tr>
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport"
+                          content="width=device-width, initial-scale=1.0">
+                </head>
+                <body style="
+                    margin:0;
+                    padding:0;
+                    background:#f4f7f4;
+                    font-family:Arial,Helvetica,sans-serif;
+                ">
+
+                <table width="100%"
+                       cellpadding="0"
+                       cellspacing="0"
+                       style="padding:30px 15px;">
+
+                    <tr>
+                        <td align="center">
+
+                            <table width="100%"
+                                   cellpadding="0"
+                                   cellspacing="0"
+                                   style="
+                                       max-width:560px;
+                                       background:#ffffff;
+                                       border-radius:14px;
+                                       overflow:hidden;
+                                       box-shadow:
+                                       0 8px 30px rgba(0,0,0,0.08);
+                                   ">
+
+                                <tr>
+                                    <td style="
+                                        background:#1f7a3f;
+                                        color:#ffffff;
+                                        padding:24px;
+                                        text-align:center;
+                                    ">
+                                        <h1 style="
+                                            margin:0;
+                                            font-size:24px;
+                                        ">
+                                            Smart Agriculture Marketplace
+                                        </h1>
+
+                                        <p style="
+                                            margin:8px 0 0;
+                                            font-size:14px;
+                                        ">
+                                            Connecting Farmers Directly to Buyers
+                                        </p>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="
+                                        padding:32px;
+                                        color:#222222;
+                                    ">
+
+                                        <h2 style="
+                                            margin-top:0;
+                                            font-size:21px;
+                                        ">
+                                            Verify your email address
+                                        </h2>
+
+                                        <p style="
+                                            font-size:15px;
+                                            line-height:1.6;
+                                        ">
+                                            Use the verification code below
+                                            to complete your registration.
+                                        </p>
+
+                                        <div style="
+                                            margin:28px 0;
+                                            text-align:center;
+                                        ">
+
+                                            <span style="
+                                                display:inline-block;
+                                                background:#eff8f1;
+                                                color:#1f7a3f;
+                                                font-size:32px;
+                                                font-weight:bold;
+                                                letter-spacing:8px;
+                                                padding:16px 24px;
+                                                border-radius:10px;
+                                                border:1px solid #cfe7d5;
+                                            ">
+                                                %s
+                                            </span>
+
+                                        </div>
+
+                                        <p style="
+                                            font-size:14px;
+                                            line-height:1.6;
+                                            color:#555555;
+                                        ">
+                                            This verification code is valid
+                                            for 10 minutes.
+                                        </p>
+
+                                        <p style="
+                                            font-size:14px;
+                                            line-height:1.6;
+                                            color:#555555;
+                                        ">
+                                            Do not share this code with anyone.
+                                            If you did not request this code,
+                                            you can ignore this email.
+                                        </p>
+
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="
+                                        background:#f7faf7;
+                                        padding:18px;
+                                        text-align:center;
+                                        color:#777777;
+                                        font-size:12px;
+                                    ">
+                                        This is an automated email.
+                                        Please do not reply.
+                                    </td>
+                                </tr>
+
+                            </table>
+
+                        </td>
+                    </tr>
+
                 </table>
-              </td></tr>
-            </table>
-            </body></html>
-            """;
+
+                </body>
+                </html>
+                """.formatted(otp);
+    }
+
+    private String maskEmail(String email) {
+
+        if (email == null || !email.contains("@")) {
+            return "***";
+        }
+
+        int atIndex = email.indexOf("@");
+
+        if (atIndex <= 2) {
+            return "***" + email.substring(atIndex);
+        }
+
+        return email.substring(0, 2)
+                + "***"
+                + email.substring(atIndex);
     }
 }
